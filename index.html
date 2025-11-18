@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- Load the Paper.js library -->
+    <script type="text/javascript" src="./node_modules/paper/dist/paper-full.js"></script>
+    <!-- Define inlined PaperScript associate it with myCanvas -->
+    <script type="text/paperscript" canvas="myCanvas">
+        function Piece(kind, color, pid) {
+            var img_path = './imgs/' + kind + '-' + color + '.svg';
+            return { kind: kind, color: color, img_path: img_path, icon: null, pid: pid };
+        }
+
+        function init_positions(pieces) {
+            pieces[0]  = new Piece('rook',   'b', 0);
+            pieces[1]  = new Piece('knight', 'b', 1);
+            pieces[2]  = new Piece('bishop', 'b', 2);
+            pieces[3]  = new Piece('queen',  'b', 3);
+            pieces[4]  = new Piece('king',   'b', 4);
+            pieces[5]  = new Piece('bishop', 'b', 5);
+            pieces[6]  = new Piece('knight', 'b', 6);
+            pieces[7]  = new Piece('rook',   'b', 7);
+            pieces[8]  = new Piece('pawn', 'b', 8);
+            pieces[9]  = new Piece('pawn', 'b', 9);
+            pieces[10] = new Piece('pawn', 'b', 10);
+            pieces[11] = new Piece('pawn', 'b', 11);
+            pieces[12] = new Piece('pawn', 'b', 12);
+            pieces[13] = new Piece('pawn', 'b', 13);
+            pieces[14] = new Piece('pawn', 'b', 14);
+            pieces[15] = new Piece('pawn', 'b', 15);
+            pieces[48] = new Piece('pawn', 'w', 16);
+            pieces[49] = new Piece('pawn', 'w', 17);
+            pieces[50] = new Piece('pawn', 'w', 18);
+            pieces[51] = new Piece('pawn', 'w', 19);
+            pieces[52] = new Piece('pawn', 'w', 21);
+            pieces[53] = new Piece('pawn', 'w', 22);
+            pieces[54] = new Piece('pawn', 'w', 23);
+            pieces[55] = new Piece('pawn', 'w', 24);
+            pieces[56]  = new Piece('rook',   'w', 25);
+            pieces[57]  = new Piece('knight', 'w', 26);
+            pieces[58]  = new Piece('bishop', 'w', 27);
+            pieces[59]  = new Piece('queen',  'w', 28);
+            pieces[60]  = new Piece('king',   'w', 29);
+            pieces[61]  = new Piece('bishop', 'w', 30);
+            pieces[62]  = new Piece('knight', 'w', 31);
+            pieces[63]  = new Piece('rook',   'w', 32);
+            return pieces;
+        };
+
+        function draw_pieces(pieces, s, from) {
+            for (var i = 0; i < 64; i++) {
+                if (pieces[i]) {
+                    (function(p, i) {
+                        var rank = Math.floor(i / 8);
+                        var file = i % 8;
+                        var pos = new Point(s*file + s/2, s*rank + s/2);
+                        if (p.icon) {
+                            p.icon.position = pos + from;
+                        } else {
+                            paper.project.importSVG(p.img_path, function(item) {
+                                item.position = pos + from;
+                                item.scale(0.25);
+                                // save the reference to the svg object in the Piece object
+                                p.icon = item;
+                            });
+                        };
+                    })(pieces[i], i);
+                };
+            };
+        };
+
+        function move_piece(pieces, idx_from, idx_to) {
+            if (idx_from == idx_to) {
+                return pieces;
+            }
+            var piece = pieces[idx_from];
+            pieces[idx_to] = piece;
+            pieces[idx_from] = null;
+            return pieces;
+        };
+
+        function capture_piece(pieces, idx_from, idx_to) {
+            if (idx_from == idx_to) {
+                return pieces;
+            }
+            // FIXME: record in the list of captured pieces
+            var captured_piece = pieces[idx_to];
+            captured_piece.icon.remove();
+            pieces[idx_to] = null;
+            return move_piece(pieces, idx_from, idx_to);
+        };
+
+        function draw_board(l, s, from) {
+            // board base
+            <!-- var to = new Point(l, l) + from; -->
+            var path = new Path.Rectangle(from, l);
+            path.strokeColor = 'black';
+            // squares
+            for (var i = 0; i < 8; i++) {
+                for (var j = 0; j < 8; j++) {
+                    var s_from = new Point(s*i, s*j) + from;
+                    var s_to = s_from + [s, s];
+                    var sq = new Path.Rectangle(s_from, s_to);
+                    sq.strokeColor = 'black';
+                    // make checker pattern
+                    sq.fillColor = ((i + j) % 2 == 1) ? '#cd8500' : '#ffd39b';
+                };
+            };
+        };
+
+        // Constants and globals
+        var origin = new Point(20, 20);
+        var l = 256;
+        var s = l / 8.0;
+        draw_board(l, s, origin);
+        var pieces = new Array(64);
+        pieces = init_positions(pieces);
+        draw_pieces(pieces, s, origin);
+
+        var highlight = new Path.Rectangle({
+            point: [origin.x, origin.y],
+            size: [s, s],
+            strokeColor: 'green',
+            strokeWidth: 3,
+            fillColor: null,
+            visible: false   // start hidden
+        });
+
+        function move_highlight(rank, file) {
+            var s_from = new Point(s * file, s * rank) + origin;
+            highlight.bounds = new Rectangle(s_from, new Size(s, s));
+            highlight.visible = true;
+        };
+
+        var debugText = new PointText({
+            point: [300, 50],
+            fillColor: 'black',
+            fontSize: 14
+        });
+
+        var tool = new Tool();
+
+        tool.onMouseMove = function(event) {
+            var p = event.point; // real canvas coords
+
+            // Check if inside board
+            if (p.x >= origin.x && p.y >= origin.y && p.x < 8*s + origin.x && p.y < 8*s + origin.y) {
+
+                var file = Math.floor((p.x - origin.x) / s); // 0–7
+                var rank = Math.floor((p.y - origin.y) / s); // 0–7
+                var fileChar = String.fromCharCode('a'.charCodeAt(0) + file);
+                var rankChar = 8 - rank;
+
+                debugText.content = "mouse: " + p + "\n" + "square: " + fileChar + rankChar;
+                
+                var piece = pieces[8 * rank + file];
+                var piece_txt = "\n" + "piece: " + (piece ? piece.color + " " + piece.kind : "");
+                debugText.content += piece_txt;
+
+            } else {
+                debugText.content = "mouse: " + p;
+            }
+
+            <!-- var hit = project.hitTest(event.point, { -->
+            <!--     fill: true, -->
+            <!--     stroke: true, -->
+            <!--     segments: true, -->
+            <!--     tolerance: 4 -->
+            <!-- }); -->
+            <!---->
+            <!-- if (hit && hit.item.data.isPiece) { -->
+            <!--     console.log('chess piece'); -->
+            <!-- } -->
+        };
+
+        var turn = 'w';
+        var piece_selected = null;
+        tool.onMouseDown = function(event) {
+            var p = event.point; // real canvas coords
+            if (p.x >= origin.x && p.y >= origin.y && p.x < 8*s + origin.x && p.y < 8*s + origin.y) {
+                var file = Math.floor((p.x - origin.x) / s); // 0–7
+                var rank = Math.floor((p.y - origin.y) / s); // 0–7
+                // this click event is to put the piece down on a new square (ie move piece)
+                if (piece_selected) {
+                    // about to move or capture
+                    var piece = pieces[8 * rank + file];
+                    if (piece) {
+                        if (piece.color != piece_selected.color) {
+                            // capture
+                            for (var i = 0; i < 64; i++) {
+                                if (pieces[i] && (pieces[i].pid == piece_selected.pid)) {
+                                    pieces = capture_piece(pieces, i, 8 * rank + file);
+                                    break;
+                                }
+                            }
+                        };
+                    } else {
+                        for (var i = 0; i < 64; i++) {
+                            if (pieces[i] && (pieces[i].pid == piece_selected.pid)) {
+                                pieces = move_piece(pieces, i, 8 * rank + file);
+                                break;
+                            }
+                        }
+                    };
+                    var pos = new Point(s*file + s/2, s*rank + s/2);
+                    piece_selected.icon.position = pos + origin;
+                    piece_selected = null;
+                    highlight.visible = false;
+                    return;
+                } else {
+                    // this click is to select a piece
+                    // FIXME: this should remove the highlight and not move the piece if clicked on
+                    // the empty square that is not a move or attack
+                    var piece = pieces[8 * rank + file];
+                    if (piece && piece.color == turn) {
+                        console.log(piece.color + " " + piece.kind);
+                        move_highlight(rank, file);
+                        piece_selected = piece;
+                        draw_pieces(pieces, s, origin);
+                    } else {
+                        highlight.visible = false;
+                    };
+                }
+            };
+        };
+
+    </script>
+
+</head>
+<body>
+	<canvas id="myCanvas" width=1000 height=1000></canvas>
+</body>
+</html>
