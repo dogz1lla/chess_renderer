@@ -1,3 +1,5 @@
+![example](imgs/example.png)
+
 # Description
 Chess state rendering in browser using paper.js.
 
