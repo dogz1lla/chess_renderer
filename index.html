@@ -134,7 +134,13 @@
         var debugText = new PointText({
             point: [300, 50],
             fillColor: 'black',
-            fontSize: 14
+            fontSize: 14,
+            strokeBounds: new Path.Rectangle({
+                point: [290, 30],
+                size: [200, 70],
+                strokeColor: 'black',
+                fillColor: null,
+            })
         });
 
         var tool = new Tool();
