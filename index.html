@@ -229,15 +229,81 @@
             };
         };
 
+        function boardToFEN_fromClient(pieces) {
+            var pieceToFen = {
+                "pawn":   "p",
+                "knight": "n",
+                "bishop": "b",
+                "rook":   "r",
+                "queen":  "q",
+                "king":   "k"
+            };
+
+            var fen = "";
+
+            for (var rank = 7; rank >= 0; rank--) {
+                var empty = 0;
+
+                for (var file = 0; file < 8; file++) {
+                    var sq = rank * 8 + file;
+                    var piece = pieces[sq];
+
+                    if (!piece) {
+                        empty++;
+                        continue;
+                    }
+
+                    if (empty > 0) {
+                        fen += empty.toString();
+                        empty = 0;
+                    }
+
+                    var code = pieceToFen[piece.kind];
+                    if (piece.color === "w") code = code.toUpperCase();
+                    fen += code;
+                }
+
+                if (empty > 0) fen += empty.toString();
+
+                if (rank > 0) fen += "/";
+            }
+
+            // default fields
+            var activeColor = "w"; // or track your `turn` variable
+            var castling = "KQkq";
+            var enpassant = "-";
+            var halfmove = "0";
+            var fullmove = "1";
+
+            return fen + " " + activeColor + " " + castling + " " + enpassant + " " + halfmove + " " + fullmove;
+        }
+
+
         // websocket connection to the chess engine
         var ws = new WebSocket("ws://localhost:8080")
         ws.addEventListener("open", function(event) {
-          ws.send("Hello Server!");
+          ws.send("m w p e2e4");
         });
         // Listen for messages
         ws.addEventListener("message", function(event) {
           console.log("Message from server ", event.data);
         });
+
+        ws.addEventListener("message", function(event) {
+            // TODO: only do this for an appropriate msg type
+            console.log("Server FEN:", event.data);
+
+            var clientFen = boardToFEN_fromClient(pieces);
+
+            console.log("Client FEN:", clientFen);
+
+            if (clientFen === event.data.trim()) {
+                console.log("FEN MATCH");
+            } else {
+                console.log("FEN MISMATCH");
+            }
+        });
+
 
     </script>
 
