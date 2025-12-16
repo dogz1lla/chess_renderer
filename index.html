@@ -85,14 +85,182 @@
 
 
         // I got FEN (aka new array of Pieces), i got old array of Pieces
+        // could start with comparing the lengths of the new and old arrays:
+        //     i)   if the len is the same -> silent move or castling or promotion
+        //     ii)  if len(old) > len(new) -> capture or en-passante
+        //     iii) if len(old) < len(new) -> error
         // for each item in the old array check if
         //     i)   new array has one just like that (kind, color, idx all the same)
         //     ii)  new array has one but in a different idx
         //     iii) new array doesnt have it
-        // could start with comparing the lengths of the new and old arrays:
-        //     i)   if the len is the same -> silent move or castling or promotion
-        //     ii)  if len(old) > len(new) -> piece taken or en-passante
-        //     iii) if len(old) < len(new) -> error
+
+        function getSymmetricKeyDifference(mapA, mapB) {
+            // NOTE: full LLM
+            // 1. Create a lookup object to track key presence and source
+            var lookup = {};
+            
+            // Get all OWN keys from mapA (safer than for...in)
+            var keysA = Object.keys(mapA);
+            var keysB = Object.keys(mapB);
+
+            var i;
+            var key;
+            
+            // 2. Process mapA: Set the source for all keys in mapA to 1
+            for (i = 0; i < keysA.length; i++) {
+                key = keysA[i];
+                lookup[key] = 1; // Key is only in mapA so far
+            }
+
+            // 3. Process mapB: Compare keys against the lookup
+            for (i = 0; i < keysB.length; i++) {
+                key = keysB[i];
+                
+                if (lookup.hasOwnProperty(key)) {
+                    // Key found in BOTH mapA (1) and mapB. Mark as shared (2).
+                    lookup[key] = 2;
+                } else {
+                    // Key found ONLY in mapB. Mark as unique to mapB (3).
+                    lookup[key] = 3;
+                }
+            }
+
+            // 4. Build the final difference array
+            var differenceKeys = [];
+
+            // Iterate over the consolidated keys in the lookup object
+            // We must use a for...in here, but we ensure safety with hasOwnProperty()
+            // or, more robustly, iterate over the keys of the lookup object itself:
+            var lookupKeys = Object.keys(lookup);
+
+            for (i = 0; i < lookupKeys.length; i++) {
+                key = lookupKeys[i];
+                var status = lookup[key];
+
+                // Symmetric Difference = keys unique to A (1) OR keys unique to B (3)
+                if (status === 1 || status === 3) {
+                    differenceKeys.push(key);
+                }
+            }
+
+            return differenceKeys;
+        }
+
+        function partitionArray(array) {
+            var partitioned = [];
+            
+            // The loop increments by 2 to process elements in pairs
+            for (var i = 0; i < array.length; i += 2) {
+                
+                // 1. Create a sub-array to hold the pair
+                var pair = [];
+                
+                // 2. Add the first element of the pair
+                pair.push(array[i]);
+                
+                // 3. Check if a second element exists (i + 1)
+                if (i + 1 < array.length) {
+                    // Add the second element if the array is not exhausted
+                    pair.push(array[i + 1]);
+                }
+                
+                // 4. Add the completed pair (or single element) to the result array
+                partitioned.push(pair);
+            }
+            
+            return partitioned;
+        }
+
+        function get_board_diff(old_pieces, new_pieces)
+        {
+            if (old_pieces.length == new_pieces.length) {
+                var hash_fn = function (p) {
+                    return p.color + "_" + p.kind + "_" + p.idx;
+                }
+                var convert_key_pair_to_pieces = function (key_pair) {
+                    console.assert(key_pair.length == 2);
+                    var piece_from_str = key_pair[0];
+                    var piece_to_str   = key_pair[1];
+
+                    var piece_from_str_split = piece_from_str.split('_');
+                    var piece_from_color = piece_from_str_split[0];
+                    var piece_from_kind  = piece_from_str_split[1];
+                    var piece_from_idx   = parseInt(piece_from_str_split[2], 10);
+
+                    var piece_to_str_split = piece_to_str.split('_');
+                    var piece_to_color = piece_to_str_split[0];
+                    var piece_to_kind  = piece_to_str_split[1];
+                    var piece_to_idx   = parseInt(piece_to_str_split[2], 10);
+
+                    var piece_from = null;
+                    for (var i=0; i<old_pieces.length; i++) {
+                        var p = old_pieces[i];
+                        if (p.color == piece_from_color && p.kind == piece_from_kind && p.idx == piece_from_idx) {
+                            piece_from = p;
+                            break;
+                        }
+                    }
+
+                    var piece_to = null;
+                    for (var i=0; i<new_pieces.length; i++) {
+                        var p = new_pieces[i];
+                        if (p.color == piece_to_color && p.kind == piece_to_kind && p.idx == piece_to_idx) {
+                            piece_to = p;
+                            break;
+                        }
+                    }
+                    return [piece_from, piece_to];
+                }
+
+                // silent move or castling or promotion
+                //   silent move
+                //     1. figure out which piece moved
+                var old_pieces_set = {};
+                var new_pieces_set = {};
+                
+                for (var i = 0; i < old_pieces.length; i++) {
+                    var p = old_pieces[i];
+                    var key = hash_fn(p);
+                    old_pieces_set[key] = p;
+                }
+                
+                for (var j = 0; j < new_pieces.length; j++) {
+                    var p = new_pieces[j];
+                    var key = hash_fn(p);
+                    new_pieces_set[key] = p;
+                }
+                var diff = getSymmetricKeyDifference(old_pieces_set, new_pieces_set);
+                console.log(diff)
+
+                if (diff.length == 2) {
+                    // silent move
+                    var moved = partitionArray(diff).map(convert_key_pair_to_pieces);
+                    // FIXME: probably dont even need the PieceClass, only need idx
+                    <!-- var idx_from = moved[0].idx; -->
+                    <!-- var idx_to   = moved[1].idx; -->
+                    <!-- for (var i = 0; i < old_pieces.length; i++) { -->
+                    <!--     var p = old_pieces[i]; -->
+                    <!--     var key = hash_fn(p); -->
+                    <!--     old_pieces_set[key] = p; -->
+                    <!-- } -->
+                    return moved
+                    
+                } else if (diff.length == 4) {
+                    // TODO castling
+                } else {
+                    // cant happen
+                    throw new Error("Diff has invalid length!");
+                }
+                // TODO castling
+                // TODO promotion
+            } else if (old_pieces.length > new_pieces.length) {
+                // capture or en-passante
+            } else {
+                // cant happen
+                throw new Error("Pieces array can not increase in length!");
+            }
+        };
+
         function fen_to_pieces(fen)
         {
             var pieces = [];
@@ -154,8 +322,8 @@
         var s = l / 8.0;
         draw_board(l, s, origin);
         <!-- clear_all_icons(pieces); -->
-        pieces = fen_to_pieces("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-        draw_pieces(pieces, s, origin);
+        CHESS_PIECES = fen_to_pieces("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        draw_pieces(CHESS_PIECES, s, origin);
 
         var highlight = new Path.Rectangle({
             point: [origin.x, origin.y],
@@ -202,8 +370,8 @@
                 
                 var piece = null;
                 var idx = 8 * rank + file;
-                for (var i = 0; i < pieces.length; i++) {
-                    if (pieces[i].idx == idx) {piece = pieces[i];}
+                for (var i = 0; i < CHESS_PIECES.length; i++) {
+                    if (CHESS_PIECES[i].idx == idx) {piece = CHESS_PIECES[i];}
                 }
                 var piece_txt = "\n" + "piece: " + (piece ? piece.color + " " + piece.kind : "");
                 debugText.content += piece_txt;
@@ -214,6 +382,33 @@
         };
 
 
+        function move_icons_based_on_diff(pieces, diff)
+        {
+            for (var i = 0; i < diff.length; i++) {
+                var diff_pair = diff[i];
+                if (diff_pair.length == 2) {
+                    // silent move
+                    var idx_from = diff_pair[0].idx;
+                    var idx_to   = diff_pair[1].idx;
+                    for (var i = 0; i < pieces.length; i++) {
+                        var p = pieces[i];
+                        if (p.idx == idx_from) {
+                            p.set_idx(idx_to);
+                            var rank = Math.floor(idx_to / 8);
+                            var file = idx_to % 8;
+                            var pos = new Point(s*file + s/2, s*rank + s/2);
+                            p.move_icon(pos, origin);
+                        }
+                    }
+                } else {
+                    // cant happen
+                    throw new Error("Diff has invalid length!");
+                }
+            }
+            
+            return pieces;
+        };
+
         // websocket connection to the chess engine
         var ws = new WebSocket("ws://localhost:8080")
         // Listen for messages
@@ -222,9 +417,13 @@
             // TODO: only do this for an appropriate msg type
             var serverFEN = event.data.trim();
             // TODO: when there are msgs that are not just FEN need to parse the type
-            <!-- clear_all_icons(pieces); -->
-            pieces = fen_to_pieces(serverFEN);
-            draw_pieces(pieces, s, origin);
+            <!-- clear_all_icons(CHESS_PIECES); -->
+            var new_pieces = fen_to_pieces(serverFEN);
+            var diff = get_board_diff(CHESS_PIECES, new_pieces);
+            <!-- pieces = fen_to_pieces(serverFEN); -->
+            CHESS_PIECES = move_icons_based_on_diff(CHESS_PIECES, diff)
+            <!-- CHESS_PIECES = new_pieces; -->
+            draw_pieces(CHESS_PIECES, s, origin);
         });
 
         function idx_to_algebraic(idx) {
@@ -273,14 +472,14 @@
                     // about to move or capture
                     var piece = null;
                     var idx = 8 * rank + file;
-                    for (var i = 0; i < pieces.length; i++) {
-                        if (pieces[i].idx == idx) {piece = pieces[i];}
+                    for (var i = 0; i < CHESS_PIECES.length; i++) {
+                        if (CHESS_PIECES[i].idx == idx) {piece = CHESS_PIECES[i];}
                     }
                     if (piece) {
                         if (piece.color != piece_selected.color) {
                             <!-- // capture -->
                             <!-- for (var i = 0; i < 64; i++) { -->
-                            <!--     if (pieces[i] && (pieces[i].pid == piece_selected.pid)) { -->
+                            <!--     if (CHESS_PIECES[i] && (CHESS_PIECES[i].pid == piece_selected.pid)) { -->
                             <!--         pieces = capture_piece(pieces, i, 8 * rank + file); -->
                             <!--         break; -->
                             <!--     } -->
@@ -289,7 +488,7 @@
                     } else {
                         // FIXME: surely there is a better way since we already have access to
                         // piece_selected
-                        move_piece(pieces, piece_selected.idx, 8 * rank + file);
+                        move_piece(CHESS_PIECES, piece_selected.idx, 8 * rank + file);
                     };
                     var pos = new Point(s*file + s/2, s*rank + s/2);
                     <!-- piece_selected.icon.position = pos + origin; -->
@@ -303,14 +502,14 @@
                     // the empty square that is not a move or attack
                     var piece = null;
                     var idx = 8 * rank + file;
-                    for (var i = 0; i < pieces.length; i++) {
-                        if (pieces[i].idx == idx) {piece = pieces[i];}
+                    for (var i = 0; i < CHESS_PIECES.length; i++) {
+                        if (CHESS_PIECES[i].idx == idx) {piece = CHESS_PIECES[i];}
                     }
                     if (piece && piece.color == turn) {
                         console.log(piece.color + " " + piece.kind);
                         move_highlight(rank, file);
                         piece_selected = piece;
-                        draw_pieces(pieces, s, origin);
+                        draw_pieces(CHESS_PIECES, s, origin);
                     } else {
                         highlight.visible = false;
                     };
