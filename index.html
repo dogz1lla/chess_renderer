@@ -10,86 +10,8 @@
             return { kind: kind, color: color, img_path: img_path, icon: null, pid: pid };
         }
 
-        function init_positions(pieces) {
-            pieces[0]  = new Piece('rook',    'w', 0);
-            pieces[1]  = new Piece('knight',  'w', 1);
-            pieces[2]  = new Piece('bishop',  'w', 2);
-            pieces[3]  = new Piece('queen',   'w', 3);
-            pieces[4]  = new Piece('king',    'w', 4);
-            pieces[5]  = new Piece('bishop',  'w', 5);
-            pieces[6]  = new Piece('knight',  'w', 6);
-            pieces[7]  = new Piece('rook',    'w', 7);
-            pieces[8]  = new Piece('pawn',    'w', 8);
-            pieces[9]  = new Piece('pawn',    'w', 9);
-            pieces[10] = new Piece('pawn',    'w', 10);
-            pieces[11] = new Piece('pawn',    'w', 11);
-            pieces[12] = new Piece('pawn',    'w', 12);
-            pieces[13] = new Piece('pawn',    'w', 13);
-            pieces[14] = new Piece('pawn',    'w', 14);
-            pieces[15] = new Piece('pawn',    'w', 15);
-            pieces[48] = new Piece('pawn',    'b', 16);
-            pieces[49] = new Piece('pawn',    'b', 17);
-            pieces[50] = new Piece('pawn',    'b', 18);
-            pieces[51] = new Piece('pawn',    'b', 19);
-            pieces[52] = new Piece('pawn',    'b', 21);
-            pieces[53] = new Piece('pawn',    'b', 22);
-            pieces[54] = new Piece('pawn',    'b', 23);
-            pieces[55] = new Piece('pawn',    'b', 24);
-            pieces[56] = new Piece('rook',    'b', 25);
-            pieces[57] = new Piece('knight',  'b', 26);
-            pieces[58] = new Piece('bishop',  'b', 27);
-            pieces[59] = new Piece('queen',   'b', 28);
-            pieces[60] = new Piece('king',    'b', 29);
-            pieces[61] = new Piece('bishop',  'b', 30);
-            pieces[62] = new Piece('knight',  'b', 31);
-            pieces[63] = new Piece('rook',    'b', 32);
-            return pieces;
-        };
-
-        function draw_pieces(pieces, s, from) {
-            for (var i = 0; i < 64; i++) {
-                if (pieces[i]) {
-                    (function(p, i) {
-                        var rank = Math.floor(i / 8);
-                        var file = i % 8;
-                        var pos = new Point(s*file + s/2, s*rank + s/2);
-                        if (p.icon) {
-                            p.icon.position = pos + from;
-                        } else {
-                            paper.project.importSVG(p.img_path, function(item) {
-                                item.position = pos + from;
-                                item.scale(0.25);
-                                // save the reference to the svg object in the Piece object
-                                p.icon = item;
-                            });
-                        };
-                    })(pieces[i], i);
-                };
-            };
-        };
-
-        function move_piece(pieces, idx_from, idx_to) {
-            if (idx_from == idx_to) {
-                return pieces;
-            }
-            var piece = pieces[idx_from];
-            pieces[idx_to] = piece;
-            pieces[idx_from] = null;
-            return pieces;
-        };
-
-        function capture_piece(pieces, idx_from, idx_to) {
-            if (idx_from == idx_to) {
-                return pieces;
-            }
-            // FIXME: record in the list of captured pieces
-            var captured_piece = pieces[idx_to];
-            captured_piece.icon.remove();
-            pieces[idx_to] = null;
-            return move_piece(pieces, idx_from, idx_to);
-        };
-
-        function draw_board(l, s, from) {
+        function draw_board(l, s, from)
+        {
             // board base
             <!-- var to = new Point(l, l) + from; -->
             var path = new Path.Rectangle(from, l);
@@ -107,13 +29,132 @@
             };
         };
 
+        /** ///////////////////////////////////////////////////////////////////////////////////////
+         * Piece class
+         */ ///////////////////////////////////////////////////////////////////////////////////////
+        function PieceClass(kind, color)
+        {
+            // Using var for variable declarations
+            var self = this;
+            
+            self.kind = kind;
+            self.color = color;
+            self.idx = null;
+            self.icon = null;
+            self.img_path = './imgs/' + self.kind + '-' + self.color + '.svg';
+        }
+
+        PieceClass.prototype.set_idx = function(idx)
+        {
+            this.idx = idx;
+        };
+
+        PieceClass.prototype.init_icon = function(pos, from)
+        {
+            if (!this.icon) {
+                // FIX: Using .bind(this) to correctly set the 'this' context inside the async callback
+                // This is the ES5 way to handle asynchronous 'this' binding.
+                paper.project.importSVG(this.img_path, function(item) {
+                    item.position = pos + from;
+                    item.scale(0.25);
+                    this.icon = item;
+                }.bind(this));
+            }
+        };
+
+        PieceClass.prototype.move_icon = function(pos, from)
+        {
+            if (this.icon) {
+                var new_pos = pos + from
+                if (this.icon.position != new_pos) {
+                    this.icon.position = new_pos;
+                }
+            } else {
+                this.init_icon(pos, from);
+            }
+        };
+
+        PieceClass.prototype.remove_icon = function()
+        {
+            if (this.icon) {
+                this.icon.remove();
+            } 
+        };
+        /** ///////////////////////////////////////////////////////////////////////////////////////
+         */ ///////////////////////////////////////////////////////////////////////////////////////
+
+
+        // I got FEN (aka new array of Pieces), i got old array of Pieces
+        // for each item in the old array check if
+        //     i)   new array has one just like that (kind, color, idx all the same)
+        //     ii)  new array has one but in a different idx
+        //     iii) new array doesnt have it
+        // could start with comparing the lengths of the new and old arrays:
+        //     i)   if the len is the same -> silent move or castling or promotion
+        //     ii)  if len(old) > len(new) -> piece taken or en-passante
+        //     iii) if len(old) < len(new) -> error
+        function fen_to_pieces(fen)
+        {
+            var pieces = [];
+            var i = 0;
+            var fenPositions = fen.split(' ')[0];
+            var fenRanks = fenPositions.split('/'); // 8 ranks
+            var pieceId = 0;
+            for (var fenRank = 0; fenRank < 8; fenRank++) {
+                var file = 0;
+                for (var j = 0; j < fenRanks[fenRank].length; j++) {
+                    var char = fenRanks[fenRank][j];
+                    // digit = empty squares
+                    if (char >= '1' && char <= '8') {
+                        file += parseInt(char, 10);
+                    } else {
+                        var color = char === char.toUpperCase() ? 'w' : 'b';
+                        var kind = char.toLowerCase();
+                        // convert FEN rank (8→1) to LERF index
+                        var rank = 7 - fenRank;
+                        var idx = rank * 8 + file;
+                        <!-- pieces[idx] = new Piece(kind, color, pieceId++); -->
+                        var new_piece = new PieceClass(kind, color);
+                        new_piece.set_idx(idx);
+                        pieces.push(new_piece);
+                        i++;
+                        file++;
+                    }
+                }
+            }
+            return pieces;
+        }
+
+        function draw_pieces(pieces, s, from)
+        {
+            for (var i = 0; i < pieces.length; i++) {
+                if (pieces[i]) {
+                    (function(p) {
+                        var idx = p.idx;
+                        var rank = Math.floor(idx / 8);
+                        var file = idx % 8;
+                        var pos = new Point(s*file + s/2, s*rank + s/2);
+                        p.move_icon(pos, from);
+                    })(pieces[i]);
+                };
+            };
+        };
+
+        <!-- function clear_all_icons(pieces) { -->
+        <!--     for (var i = 0; i < 64; i++) { -->
+        <!--         if (pieces[i]) { -->
+        <!--             pieces[i].icon.remove(); -->
+        <!--         }; -->
+        <!--     }; -->
+        <!-- }; -->
+
         // Constants and globals
         var origin = new Point(20, 20);
         var l = 256;
         var s = l / 8.0;
         draw_board(l, s, origin);
-        var pieces = new Array(64);
-        pieces = init_positions(pieces);
+        <!-- clear_all_icons(pieces); -->
+        pieces = fen_to_pieces("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
         draw_pieces(pieces, s, origin);
 
         var highlight = new Path.Rectangle({
@@ -145,7 +186,8 @@
 
         var tool = new Tool();
 
-        tool.onMouseMove = function(event) {
+        tool.onMouseMove = function(event)
+        {
             var p = event.point; // real canvas coords
 
             // Check if inside board
@@ -158,25 +200,66 @@
 
                 debugText.content = "mouse: " + p + "\n" + "square: " + fileChar + rankChar;
                 
-                var piece = pieces[8 * rank + file];
+                var piece = null;
+                var idx = 8 * rank + file;
+                for (var i = 0; i < pieces.length; i++) {
+                    if (pieces[i].idx == idx) {piece = pieces[i];}
+                }
                 var piece_txt = "\n" + "piece: " + (piece ? piece.color + " " + piece.kind : "");
                 debugText.content += piece_txt;
 
             } else {
                 debugText.content = "mouse: " + p;
             }
-
-            <!-- var hit = project.hitTest(event.point, { -->
-            <!--     fill: true, -->
-            <!--     stroke: true, -->
-            <!--     segments: true, -->
-            <!--     tolerance: 4 -->
-            <!-- }); -->
-            <!---->
-            <!-- if (hit && hit.item.data.isPiece) { -->
-            <!--     console.log('chess piece'); -->
-            <!-- } -->
         };
+
+
+        // websocket connection to the chess engine
+        var ws = new WebSocket("ws://localhost:8080")
+        // Listen for messages
+        ws.addEventListener("message", function(event) {
+            console.log("Message from server ", event.data);
+            // TODO: only do this for an appropriate msg type
+            var serverFEN = event.data.trim();
+            // TODO: when there are msgs that are not just FEN need to parse the type
+            <!-- clear_all_icons(pieces); -->
+            pieces = fen_to_pieces(serverFEN);
+            draw_pieces(pieces, s, origin);
+        });
+
+        function idx_to_algebraic(idx) {
+            var rank = Math.floor(idx / 8) + 1;
+            var file = idx % 8;
+            return String.fromCharCode(97 + file) + rank;
+        };
+        
+        function move_piece(pieces, idx_from, idx_to) {
+            if (idx_from == idx_to) {
+                return;
+            }
+            // TODO use .filter of the array
+            var piece = null;
+            for (var i = 0; i < pieces.length; i++) {
+                if (pieces[i].idx == idx_from) {piece = pieces[i];}
+            }
+            console.assert(piece);
+            var algebraic_from = idx_to_algebraic(idx_from);
+            var algebraic_to   = idx_to_algebraic(idx_to);
+            var msg = "m " + piece.color + " " + piece.kind + " " + algebraic_from + algebraic_to;
+            ws.send(msg);
+            return;
+        };
+
+        <!-- function capture_piece(pieces, idx_from, idx_to) { -->
+        <!--     if (idx_from == idx_to) { -->
+        <!--         return pieces; -->
+        <!--     } -->
+        <!--     // FIXME: record in the list of captured pieces -->
+        <!--     var captured_piece = pieces[idx_to]; -->
+        <!--     captured_piece.icon.remove(); -->
+        <!--     pieces[idx_to] = null; -->
+        <!--     return move_piece(pieces, idx_from, idx_to); -->
+        <!-- }; -->
 
         var turn = 'w';
         var piece_selected = null;
@@ -188,27 +271,29 @@
                 // this click event is to put the piece down on a new square (ie move piece)
                 if (piece_selected) {
                     // about to move or capture
-                    var piece = pieces[8 * rank + file];
+                    var piece = null;
+                    var idx = 8 * rank + file;
+                    for (var i = 0; i < pieces.length; i++) {
+                        if (pieces[i].idx == idx) {piece = pieces[i];}
+                    }
                     if (piece) {
                         if (piece.color != piece_selected.color) {
-                            // capture
-                            for (var i = 0; i < 64; i++) {
-                                if (pieces[i] && (pieces[i].pid == piece_selected.pid)) {
-                                    pieces = capture_piece(pieces, i, 8 * rank + file);
-                                    break;
-                                }
-                            }
+                            <!-- // capture -->
+                            <!-- for (var i = 0; i < 64; i++) { -->
+                            <!--     if (pieces[i] && (pieces[i].pid == piece_selected.pid)) { -->
+                            <!--         pieces = capture_piece(pieces, i, 8 * rank + file); -->
+                            <!--         break; -->
+                            <!--     } -->
+                            <!-- } -->
                         };
                     } else {
-                        for (var i = 0; i < 64; i++) {
-                            if (pieces[i] && (pieces[i].pid == piece_selected.pid)) {
-                                pieces = move_piece(pieces, i, 8 * rank + file);
-                                break;
-                            }
-                        }
+                        // FIXME: surely there is a better way since we already have access to
+                        // piece_selected
+                        move_piece(pieces, piece_selected.idx, 8 * rank + file);
                     };
                     var pos = new Point(s*file + s/2, s*rank + s/2);
-                    piece_selected.icon.position = pos + origin;
+                    <!-- piece_selected.icon.position = pos + origin; -->
+                    piece_selected.move_icon(pos, origin);
                     piece_selected = null;
                     highlight.visible = false;
                     return;
@@ -216,7 +301,11 @@
                     // this click is to select a piece
                     // FIXME: this should remove the highlight and not move the piece if clicked on
                     // the empty square that is not a move or attack
-                    var piece = pieces[8 * rank + file];
+                    var piece = null;
+                    var idx = 8 * rank + file;
+                    for (var i = 0; i < pieces.length; i++) {
+                        if (pieces[i].idx == idx) {piece = pieces[i];}
+                    }
                     if (piece && piece.color == turn) {
                         console.log(piece.color + " " + piece.kind);
                         move_highlight(rank, file);
@@ -228,81 +317,6 @@
                 }
             };
         };
-
-        function boardToFEN_fromClient(pieces) {
-            var pieceToFen = {
-                "pawn":   "p",
-                "knight": "n",
-                "bishop": "b",
-                "rook":   "r",
-                "queen":  "q",
-                "king":   "k"
-            };
-
-            var fen = "";
-
-            for (var rank = 7; rank >= 0; rank--) {
-                var empty = 0;
-
-                for (var file = 0; file < 8; file++) {
-                    var sq = rank * 8 + file;
-                    var piece = pieces[sq];
-
-                    if (!piece) {
-                        empty++;
-                        continue;
-                    }
-
-                    if (empty > 0) {
-                        fen += empty.toString();
-                        empty = 0;
-                    }
-
-                    var code = pieceToFen[piece.kind];
-                    if (piece.color === "w") code = code.toUpperCase();
-                    fen += code;
-                }
-
-                if (empty > 0) fen += empty.toString();
-
-                if (rank > 0) fen += "/";
-            }
-
-            // default fields
-            var activeColor = "w"; // or track your `turn` variable
-            var castling = "KQkq";
-            var enpassant = "-";
-            var halfmove = "0";
-            var fullmove = "1";
-
-            return fen + " " + activeColor + " " + castling + " " + enpassant + " " + halfmove + " " + fullmove;
-        }
-
-
-        // websocket connection to the chess engine
-        var ws = new WebSocket("ws://localhost:8080")
-        ws.addEventListener("open", function(event) {
-          ws.send("m w p e2e4");
-        });
-        // Listen for messages
-        ws.addEventListener("message", function(event) {
-          console.log("Message from server ", event.data);
-        });
-
-        ws.addEventListener("message", function(event) {
-            // TODO: only do this for an appropriate msg type
-            console.log("Server FEN:", event.data);
-
-            var clientFen = boardToFEN_fromClient(pieces);
-
-            console.log("Client FEN:", clientFen);
-
-            if (clientFen === event.data.trim()) {
-                console.log("FEN MATCH");
-            } else {
-                console.log("FEN MISMATCH");
-            }
-        });
 
 
     </script>
