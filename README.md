@@ -13,5 +13,8 @@ imgs)
 - [x] render the board
 - [x] add piece svgs
 - [x] render the initial configuration
-- [ ] create a text element that shows absolute mouse position (dynamic)
-- [ ] create a text element that shows in-board-coordinates mouse (dynamic)
+- [x] create a text element that shows absolute mouse position (dynamic)
+- [x] create a text element that shows in-board-coordinates mouse (dynamic)
+- [x] refactor the Piece class and logic to include the board idx inside the instance
+- [ ] write the logic to calc the diff between the current pieces array and the one from server fen
+- [ ] implement piece capture
