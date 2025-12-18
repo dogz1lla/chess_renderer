@@ -414,16 +414,28 @@
         // Listen for messages
         ws.addEventListener("message", function(event) {
             console.log("Message from server ", event.data);
-            // TODO: only do this for an appropriate msg type
-            var serverFEN = event.data.trim();
-            // TODO: when there are msgs that are not just FEN need to parse the type
-            <!-- clear_all_icons(CHESS_PIECES); -->
-            var new_pieces = fen_to_pieces(serverFEN);
-            var diff = get_board_diff(CHESS_PIECES, new_pieces);
-            <!-- pieces = fen_to_pieces(serverFEN); -->
-            CHESS_PIECES = move_icons_based_on_diff(CHESS_PIECES, diff)
-            <!-- CHESS_PIECES = new_pieces; -->
-            draw_pieces(CHESS_PIECES, s, origin);
+            var msgs = event.data.split('_');
+            console.log("Messages: ", msgs);
+            for (var i = 0; i < msgs.length; i++) {
+                var msg_split = msgs[i].split(':');
+                var msg_type = msg_split[0];
+                var msg_body = msg_split[1];
+                console.log("Msg  ", i, ": type=", msg_type, "; msg_body=", msg_body);
+                if (msg_type == "s") {
+                    // state updated
+                    var serverFEN = msg_body.trim();
+                    var new_pieces = fen_to_pieces(serverFEN);
+                    var diff = get_board_diff(CHESS_PIECES, new_pieces);
+                    CHESS_PIECES = move_icons_based_on_diff(CHESS_PIECES, diff)
+                    draw_pieces(CHESS_PIECES, s, origin);
+                    ws.send("lm");
+                } else if (msg_type == "lm") {
+                    // last move that was made
+                    // TODO NEXT: move the icons based on the last move string instead of FEN diff
+                    console.log("Last move: ", msg_body);
+                }
+            }
+
         });
 
         function idx_to_algebraic(idx) {
