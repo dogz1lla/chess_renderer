@@ -16,5 +16,6 @@ imgs)
 - [x] create a text element that shows absolute mouse position (dynamic)
 - [x] create a text element that shows in-board-coordinates mouse (dynamic)
 - [x] refactor the Piece class and logic to include the board idx inside the instance
-- [ ] write the logic to calc the diff between the current pieces array and the one from server fen
+- [x] move the piece icon based on the last move message from the server
+- [ ] add the move switch
 - [ ] implement piece capture
