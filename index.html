@@ -129,9 +129,10 @@
         var origin = new Point(20, 20);
         var l = 256;
         var s = l / 8.0;
+        var CHESS_PIECES = fen_to_pieces("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        var turn = 'w';
+
         draw_board(l, s, origin);
-        <!-- clear_all_icons(pieces); -->
-        CHESS_PIECES = fen_to_pieces("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
         draw_pieces(CHESS_PIECES, s, origin);
 
         var highlight = new Path.Rectangle({
@@ -190,10 +191,14 @@
             }
         };
 
+        function switch_turn()
+        {
+            turn = turn == 'w' ? 'b' : 'w';
+        };
 
         // websocket connection to the chess engine
         var ws = new WebSocket("ws://localhost:8080")
-        // Listen for messages
+        // SERVER MESSAGE PARSING
         ws.addEventListener("message", function(event) {
             var msgs = event.data.split('_');
             console.log("Messages: ", msgs);
@@ -209,6 +214,7 @@
                 } else if (msg_type == "lm") {
                     // last move that was made
                     move_piece_icon(CHESS_PIECES, msg_body);
+                    switch_turn();
                 }
             }
 
@@ -272,7 +278,6 @@
         };
 
         // FIXME
-        var turn = 'w';
         var piece_selected = null;
         tool.onMouseDown = function(event) {
             var p = event.point; // real canvas coords

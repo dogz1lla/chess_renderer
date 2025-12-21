@@ -17,5 +17,8 @@ imgs)
 - [x] create a text element that shows in-board-coordinates mouse (dynamic)
 - [x] refactor the Piece class and logic to include the board idx inside the instance
 - [x] move the piece icon based on the last move message from the server
-- [ ] add the move switch
+- [ ] add the turn switch
+    + [x] create a global var that contains the current turn
+    + [x] switch the turn in the `last_move` server msg callback
+    + [ ] switch the turn based on the FEN that the server is sending
 - [ ] implement piece capture
