@@ -294,22 +294,13 @@
                     }
                     if (piece) {
                         if (piece.color != piece_selected.color) {
-                            <!-- // capture -->
-                            <!-- for (var i = 0; i < 64; i++) { -->
-                            <!--     if (CHESS_PIECES[i] && (CHESS_PIECES[i].pid == piece_selected.pid)) { -->
-                            <!--         pieces = capture_piece(pieces, i, 8 * rank + file); -->
-                            <!--         break; -->
-                            <!--     } -->
-                            <!-- } -->
+                            // the target square has a piece -> if different color then capture
+                            // FIXME
                         };
                     } else {
-                        // FIXME: surely there is a better way since we already have access to
-                        // piece_selected
-                        move_piece(CHESS_PIECES, piece_selected.idx, 8 * rank + file);
+                        // the target square has no piece -> move here
+                        move_piece(CHESS_PIECES, piece_selected.idx, idx);
                     };
-                    var pos = new Point(s*file + s/2, s*rank + s/2);
-                    <!-- piece_selected.icon.position = pos + origin; -->
-                    piece_selected.move_icon(pos, origin);
                     piece_selected = null;
                     highlight.visible = false;
                     return;
@@ -326,7 +317,6 @@
                         console.log(piece.color + " " + piece.kind);
                         move_highlight(rank, file);
                         piece_selected = piece;
-                        <!-- draw_pieces(CHESS_PIECES, s, origin); -->
                     } else {
                         highlight.visible = false;
                     };
