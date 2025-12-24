@@ -130,7 +130,7 @@
         var l = 256;
         var s = l / 8.0;
         var CHESS_PIECES = fen_to_pieces("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-        var turn = 'w';
+        var TURN = 'w';
 
         draw_board(l, s, origin);
         draw_pieces(CHESS_PIECES, s, origin);
@@ -191,11 +191,6 @@
             }
         };
 
-        function switch_turn()
-        {
-            turn = turn == 'w' ? 'b' : 'w';
-        };
-
         // websocket connection to the chess engine
         var ws = new WebSocket("ws://localhost:8080")
         // SERVER MESSAGE PARSING
@@ -210,11 +205,16 @@
                 if (msg_type == "s") {
                     // state updated
                     <!-- var serverFEN = msg_body.trim(); -->
+                    // ask for the last move string
                     ws.send("lm");
                 } else if (msg_type == "lm") {
                     // last move that was made
                     move_piece_icon(CHESS_PIECES, msg_body);
-                    switch_turn();
+                    // ask for the turn string
+                    ws.send("t");
+                } else if (msg_type == "t") {
+                    // whose turn
+                    TURN = msg_body;
                 }
             }
 
@@ -313,7 +313,7 @@
                     for (var i = 0; i < CHESS_PIECES.length; i++) {
                         if (CHESS_PIECES[i].idx == idx) {piece = CHESS_PIECES[i];}
                     }
-                    if (piece && piece.color == turn) {
+                    if (piece && piece.color == TURN) {
                         console.log(piece.color + " " + piece.kind);
                         move_highlight(rank, file);
                         piece_selected = piece;
