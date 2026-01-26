@@ -125,6 +125,43 @@
             };
         };
 
+        function init_move_highlights(s, from)
+        {
+            var result = [];
+            for (var i = 0; i < 64; i++) {
+                var rank = Math.floor(i / 8);
+                var file = i % 8;
+                var pos = new Point(s*file + s/2, s*rank + s/2);
+
+                var c = new Path.Circle({
+                    center: pos + from,
+                    radius: 5,
+                    fillColor: 'gray',
+                    visible: false,
+                    opacity: 0.3
+                });
+                c.bringToFront();
+                result.push(c);
+            }
+            return result;
+        }
+
+        function highlight_legal_moves(moves_str, move_highlight_array)
+        {
+            for (var i = 0; i < moves_str.length; i++) {
+                if (moves_str[i] == '1') {
+                    move_highlight_array[i].visible = true;
+                }
+            }
+        }
+
+        function hide_all_move_highlights(move_highlight_array)
+        {
+            for (var i = 0; i < 64; i++) {
+                move_highlight_array[i].visible = false;
+            }
+        }
+
         // Constants and globals
         var origin = new Point(20, 20);
         var l = 256;
@@ -134,6 +171,7 @@
 
         draw_board(l, s, origin);
         draw_pieces(CHESS_PIECES, s, origin);
+        var MOVE_HIGHLIGHTS = init_move_highlights(s, origin);
 
         var highlight = new Path.Rectangle({
             point: [origin.x, origin.y],
@@ -215,6 +253,10 @@
                 } else if (msg_type == "t") {
                     // whose turn
                     TURN = msg_body;
+                } else if (msg_type == "gm") {
+                    // all moves for a selected square
+                    console.log("Moves: ", msg_body);
+                    highlight_legal_moves(msg_body, MOVE_HIGHLIGHTS);
                 }
             }
 
@@ -303,6 +345,7 @@
                     };
                     piece_selected = null;
                     highlight.visible = false;
+                    hide_all_move_highlights(MOVE_HIGHLIGHTS);
                     return;
                 } else {
                     // this click is to select a piece
@@ -317,8 +360,11 @@
                         console.log(piece.color + " " + piece.kind);
                         move_highlight(rank, file);
                         piece_selected = piece;
+                        var msg = "gm " + idx;
+                        ws.send(msg);
                     } else {
                         highlight.visible = false;
+                        hide_all_move_highlights(MOVE_HIGHLIGHTS);
                     };
                 }
             };
