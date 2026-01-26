@@ -80,6 +80,7 @@
 
         function fen_to_pieces(fen)
         {
+            console.log("Reading FEN: ", fen);
             var pieces = [];
             var i = 0;
             var fenPositions = fen.split(' ')[0];
@@ -166,12 +167,55 @@
         var origin = new Point(20, 20);
         var l = 256;
         var s = l / 8.0;
-        var CHESS_PIECES = fen_to_pieces("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-        var TURN = 'w';
-
         draw_board(l, s, origin);
-        draw_pieces(CHESS_PIECES, s, origin);
+
+        var CHESS_PIECES = [];
+        var TURN = 'w';
         var MOVE_HIGHLIGHTS = init_move_highlights(s, origin);
+
+
+        // websocket connection to the chess engine
+        var ws = new WebSocket("ws://localhost:8080")
+        ws.addEventListener("open", function(event) {
+            console.log("WebSocket connected!");
+            ws.send("init");
+        });
+
+        // SERVER MESSAGE PARSING
+        ws.addEventListener("message", function(event) {
+            var msgs = event.data.split('_');
+            console.log("Messages: ", msgs);
+            for (var i = 0; i < msgs.length; i++) {
+                var msg_split = msgs[i].split(':');
+                var msg_type = msg_split[0];
+                var msg_body = msg_split[1];
+                console.log("Msg  ", i, ": type=", msg_type, "; msg_body=", msg_body);
+                if (msg_type == "s") {
+                    // state updated
+                    <!-- var serverFEN = msg_body.trim(); -->
+                    // ask for the last move string
+                    ws.send("lm");
+                } else if (msg_type == "init") {
+                    // initial state
+                    CHESS_PIECES = fen_to_pieces(msg_body);
+                    draw_pieces(CHESS_PIECES, s, origin);
+                } else if (msg_type == "lm") {
+                    // last move that was made
+                    move_piece_icon(CHESS_PIECES, msg_body);
+                    // ask for the turn string
+                    ws.send("t");
+                } else if (msg_type == "t") {
+                    // whose turn
+                    TURN = msg_body;
+                } else if (msg_type == "gm") {
+                    // all moves for a selected square
+                    console.log("Moves: ", msg_body);
+                    highlight_legal_moves(msg_body, MOVE_HIGHLIGHTS);
+                }
+            }
+
+        });
+
 
         var highlight = new Path.Rectangle({
             point: [origin.x, origin.y],
@@ -219,7 +263,9 @@
                 var piece = null;
                 var idx = 8 * rank + file;
                 for (var i = 0; i < CHESS_PIECES.length; i++) {
-                    if (CHESS_PIECES[i].idx == idx) {piece = CHESS_PIECES[i];}
+                    if (CHESS_PIECES[i].idx == idx) {
+                        piece = CHESS_PIECES[i];
+                    }
                 }
                 var piece_txt = "\n" + "piece: " + (piece ? piece.color + " " + piece.kind : "");
                 debugText.content += piece_txt;
@@ -228,39 +274,6 @@
                 debugText.content = "mouse: " + p;
             }
         };
-
-        // websocket connection to the chess engine
-        var ws = new WebSocket("ws://localhost:8080")
-        // SERVER MESSAGE PARSING
-        ws.addEventListener("message", function(event) {
-            var msgs = event.data.split('_');
-            console.log("Messages: ", msgs);
-            for (var i = 0; i < msgs.length; i++) {
-                var msg_split = msgs[i].split(':');
-                var msg_type = msg_split[0];
-                var msg_body = msg_split[1];
-                console.log("Msg  ", i, ": type=", msg_type, "; msg_body=", msg_body);
-                if (msg_type == "s") {
-                    // state updated
-                    <!-- var serverFEN = msg_body.trim(); -->
-                    // ask for the last move string
-                    ws.send("lm");
-                } else if (msg_type == "lm") {
-                    // last move that was made
-                    move_piece_icon(CHESS_PIECES, msg_body);
-                    // ask for the turn string
-                    ws.send("t");
-                } else if (msg_type == "t") {
-                    // whose turn
-                    TURN = msg_body;
-                } else if (msg_type == "gm") {
-                    // all moves for a selected square
-                    console.log("Moves: ", msg_body);
-                    highlight_legal_moves(msg_body, MOVE_HIGHLIGHTS);
-                }
-            }
-
-        });
 
         function idx_to_algebraic(idx) {
             var rank = Math.floor(idx / 8) + 1;
