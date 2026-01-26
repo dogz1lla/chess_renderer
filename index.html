@@ -353,8 +353,11 @@
                             // FIXME
                         };
                     } else {
-                        // the target square has no piece -> move here
-                        move_piece(CHESS_PIECES, piece_selected.idx, idx);
+                        // the target square has no piece -> move here but
+                        // only move if it is a valid move square for the selected piece
+                        if (MOVE_HIGHLIGHTS[idx].visible) {
+                            move_piece(CHESS_PIECES, piece_selected.idx, idx);
+                        }
                     };
                     piece_selected = null;
                     highlight.visible = false;
