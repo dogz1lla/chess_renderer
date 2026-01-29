@@ -75,6 +75,14 @@
                 this.icon.remove();
             } 
         };
+
+        PieceClass.prototype.remove = function()
+        {
+            if (this.idx) {
+                this.idx = null;
+            } 
+            this.remove_icon();
+        };
         /** ///////////////////////////////////////////////////////////////////////////////////////
          */ ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -349,8 +357,16 @@
 
             for (var i = 0; i < pieces.length; i++) {
                 var p = pieces[i];
+                if (p.idx == idx_to) {
+                    p.remove();
+                    break;
+                }
+            }
+
+            for (var i = 0; i < pieces.length; i++) {
+                var p = pieces[i];
                 if (p.color == color && p.kind == kind && p.idx == idx_from) {
-                    p.idx = idx_to;
+                    p.set_idx(idx_to);
                     break;
                 }
             }
@@ -370,6 +386,17 @@
             var algebraic_from = idx_to_algebraic(idx_from);
             var algebraic_to   = idx_to_algebraic(idx_to);
             var msg = "m " + piece.color + " " + piece.kind + " " + algebraic_from + algebraic_to;
+
+            var captured_piece = null;
+            for (var i = 0; i < pieces.length; i++) {
+                if (pieces[i].idx == idx_to) {captured_piece = pieces[i];}
+            }
+            if (captured_piece) {
+                console.log("CAPTURE: ", captured_piece);
+                console.assert(captured_piece);
+                msg += " " + captured_piece.kind;
+            }
+
             ws.send(msg);
             return;
         };
@@ -393,6 +420,9 @@
                         if (piece.color != piece_selected.color) {
                             // the target square has a piece -> if different color then capture
                             // FIXME
+                            if (ATTACK_HIGHLIGHTS[idx].visible) {
+                                move_piece(CHESS_PIECES, piece_selected.idx, idx);
+                            }
                         };
                     } else {
                         // the target square has no piece -> move here but
