@@ -163,6 +163,43 @@
             }
         }
 
+        function init_attack_highlights(s, from)
+        {
+            var result = [];
+            for (var i = 0; i < 64; i++) {
+                var rank = Math.floor(i / 8);
+                var file = i % 8;
+                var pos = new Point(s*file, s*rank);
+                var c = new Path.Rectangle({
+                    point: pos + from,
+                    size: [s, s],
+                    strokeColor: 'red',
+                    strokeWidth: 3,
+                    fillColor: null,
+                    visible: false,
+                });
+                c.bringToFront();
+                result.push(c);
+            }
+            return result;
+        }
+
+        function highlight_legal_attacks(attacks_str, attack_highlight_array)
+        {
+            for (var i = 0; i < attacks_str.length; i++) {
+                if (attacks_str[i] == '1') {
+                    attack_highlight_array[i].visible = true;
+                }
+            }
+        }
+
+        function hide_all_attack_highlights(attack_highlight_array)
+        {
+            for (var i = 0; i < 64; i++) {
+                attack_highlight_array[i].visible = false;
+            }
+        }
+
         // Constants and globals
         var origin = new Point(20, 20);
         var l = 256;
@@ -171,7 +208,8 @@
 
         var CHESS_PIECES = [];
         var TURN = 'w';
-        var MOVE_HIGHLIGHTS = init_move_highlights(s, origin);
+        var MOVE_HIGHLIGHTS   = init_move_highlights(s, origin);
+        var ATTACK_HIGHLIGHTS = init_attack_highlights(s, origin);
 
 
         // websocket connection to the chess engine
@@ -211,6 +249,10 @@
                     // all moves for a selected square
                     console.log("Moves: ", msg_body);
                     highlight_legal_moves(msg_body, MOVE_HIGHLIGHTS);
+                } else if (msg_type == "ga") {
+                    // all attacks for a selected square
+                    console.log("Attacks: ", msg_body);
+                    highlight_legal_attacks(msg_body, ATTACK_HIGHLIGHTS);
                 }
             }
 
@@ -362,6 +404,7 @@
                     piece_selected = null;
                     highlight.visible = false;
                     hide_all_move_highlights(MOVE_HIGHLIGHTS);
+                    hide_all_attack_highlights(ATTACK_HIGHLIGHTS);
                     return;
                 } else {
                     // this click is to select a piece
@@ -381,6 +424,7 @@
                     } else {
                         highlight.visible = false;
                         hide_all_move_highlights(MOVE_HIGHLIGHTS);
+                        hide_all_attack_highlights(ATTACK_HIGHLIGHTS);
                     };
                 }
             };
